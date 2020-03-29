@@ -19,38 +19,38 @@ import morfologik.stemming.DictionaryLookup;
 import morfologik.stemming.WordData;
 
 /**
- * Applies a morphological dictionary automaton to the input. 
+ * Applies a morphological dictionary automaton to the input.
  */
 @Parameters(
-    commandNames = "dict_apply",
-    commandDescription = "Applies a dictionary to an input. Each line is considered an input term.")
+        commandNames = "dict_apply",
+        commandDescription = "Applies a dictionary to an input. Each line is considered an input term.")
 public class DictApply extends CliTool {
   private final static String ARG_ENCODING = "--input-charset";
-  
+
   @Parameter(
-      names = {"-i", "--input"},
-      required = false,
-      description = "The input file, each entry in a single line. If not provided, stdin is used.",
-      validateValueWith = ValidateFileExists.class)
+          names = {"-i", "--input"},
+          required = false,
+          description = "The input file, each entry in a single line. If not provided, stdin is used.",
+          validateValueWith = ValidateFileExists.class)
   private Path input;
 
   @Parameter(
-      names = {"-d", "--dictionary"},
-      description = "The dictionary (*.dict and a sibling *.info metadata) to apply.", 
-      required = true,
-      validateValueWith = ValidateFileExists.class)
+          names = {"-d", "--dictionary"},
+          description = "The dictionary (*.dict and a sibling *.info metadata) to apply.",
+          required = true,
+          validateValueWith = ValidateFileExists.class)
   private Path dictionary;
 
   @Parameter(
-      names = {ARG_ENCODING},
-      required = false,
-      description = "Character encoding of the input (platform's default).")
+          names = {ARG_ENCODING},
+          required = false,
+          description = "Character encoding of the input (platform's default).")
   private String inputEncoding;
 
   @Parameter(
-      names = {"--skip-tags"},
-      required = false,
-      description = "Skip tags in the output, only print base forms if found.")
+          names = {"--skip-tags"},
+          required = false,
+          description = "Skip tags in the output, only print base forms if found.")
   private boolean skipTags = false;
 
   private abstract class LineSupplier implements Closeable {
@@ -73,7 +73,7 @@ public class DictApply extends CliTool {
     public String nextLine() throws IOException {
       return lineReader.readLine();
     }
-    
+
     @Override
     public void close() throws IOException {
       lineReader.close();
@@ -82,7 +82,7 @@ public class DictApply extends CliTool {
 
   DictApply() {
   }
-  
+
   public DictApply(Path dictionary,
                    Path input,
                    String inputEncoding) {
@@ -96,7 +96,7 @@ public class DictApply extends CliTool {
     if (exitStatus != null) {
       return exitStatus;
     }
-    
+
     final DictionaryLookup lookup = new DictionaryLookup(Dictionary.read(this.dictionary));
     try (final LineSupplier input = determineInput()) {
       String line;
@@ -104,19 +104,15 @@ public class DictApply extends CliTool {
         if (line.length() == 0) {
           continue;
         }
-
-        List<WordData> wordData = lookup.lookup(line);
-        if (wordData.isEmpty()) {
-          System.out.println(line + " => [not found]");
-        } else {
-          for (WordData wd : wordData) {
-            CharSequence stem = wd.getStem();
-            CharSequence tag = wd.getTag();
-            System.out.println(line + " => " +
-                ((skipTags || tag == null) ? stem
-                                           : stem + " " + tag));
+        String[] words = line.trim().split("\\s+");
+        for(String word : words){
+          List<WordData> wordData = lookup.lookup(word.replaceAll("\\P{L}+", ""));
+          if (!wordData.isEmpty()) {
+            System.out.print(wordData.get(0).getStem() + " ");
           }
         }
+        System.out.println();
+
       }
     }
 
@@ -140,13 +136,13 @@ public class DictApply extends CliTool {
     }
 
     Charset charset = this.inputEncoding != null ? Charset.forName(this.inputEncoding)
-                                                 : Charset.defaultCharset();
+            : Charset.defaultCharset();
     System.err.println("NOTE: Using stdin for input, character encoding set to: " + charset.name() +
-        " (use " + ARG_ENCODING + " to override).");
+            " (use " + ARG_ENCODING + " to override).");
     return new ReaderLineSupplier(
-        new BufferedReader(
-            new InputStreamReader(
-                new BufferedInputStream(System.in), charset)));
+            new BufferedReader(
+                    new InputStreamReader(
+                            new BufferedInputStream(System.in), charset)));
   }
 
   private ExitStatus validateArguments() {
